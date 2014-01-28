@@ -14,20 +14,22 @@
 ///TODO: Make run when no network is present
 ///TODO: Recover when network reappears
 ///TODO: Make everything use posts. maybe
+///TODO: Sanity checks. Everywhere. Until I'm Insane.
+///TODO: Figure out memory usage. If we max memory we will see weird behaviour.
 
 #include <Ethernet.h> // Needed For Reasons
 #include <WebServer.h> // Lets us easily do web requests
 #include <SPI.h> // Needed to control Lights
 #include <Adafruit_NeoPixel.h> // Controls the Lights
 
-#define STRIPLENGTH 42 // Number of LED's in light strip
 #define PIN 6 // Pin that the LED strip is attached to
 #define PREFIX "" // Document root for our pages
 #define PORT 80 // Web Server Port
 #define NAMELEN 8 // Max variable length in request
 #define VALUELEN 256 // Max value from request
-#define WIDTH // How many LEDs wide our array is
-#define HEIGHT // How many LEDs high our array is
+#define WIDTH 7 // How many LEDs wide our array is
+#define HEIGHT 6 // How many LEDs high our array is
+#define STRIPLENGTH 42 // Number of LED's in light strip
 
 // Used to store the LED's values
 struct led {
@@ -36,31 +38,59 @@ struct led {
   char blue;
 };
 
-// For controlling the lights
+// For controlling the lights - Should only be changed by the functions
 int position = 0; // How far through the cycle we are
 struct led ledArray[STRIPLENGTH]; // led array
+int lightOption = 0; // Which predefined light sequence we are running
 char brightness = (char) 128; //Brightness of the LEDs
   // We seem to have issues at the moment putting this up to the maximum (255)
   // Most likely due to the fact the LED strip is underpowered
-int lightOption = 0; // Which predefined light sequence we are running
 
+// Network Settings
 static uint8_t mac[] = { 0xC0, 0xCA, 0xC0, 0x1A, 0x19, 0x82 }; // C0CA C01A 1982
 IPAddress ip(130,95,13,96); // 130.95.13.96 (Can we forcefully take .82?
-
+// If we remove the ip address, we will automatically use DHCP
 
 // Set up our light strip
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(STRIPLENGTH, PIN, NEO_GRB + NEO_KHZ800);
 // Set up our webserver
 WebServer webserver(PREFIX, 80);
 
+// ============================ LIGHT MANIPULATION ============================
+
 /**
  * Change the lights to our updated array
+ * We should probably get rid of this soonish
  */
 void showArray() {
+  ///TODO: Rename this to something better?
   for (int i = 0; i < STRIPLENGTH; i ++) {
     strip.setPixelColor(i, (int) ledArray[i].red, (int) ledArray[i].green, (int) ledArray[i].blue);
   }
   strip.show();
+}
+
+/**
+ * Set the LED at pos in the strip to the defined color
+ * @param xpos  x coordinate
+ * @param ypos  y cordinate
+ * @return      position in the array
+ */
+int coordToPos(int xpos, int ypos) {
+  ///TODO: Test this function
+  int pos = 0;
+  if (ypos % 2 == 0) { // if we are on an even line, add y
+    pos = ypos * WIDTH + xpos;
+  }
+  else { // on an odd line, take y
+    if (WIDTH % 2 == 0) { // even width
+      pos = ypos * WIDTH + HEIGHT - xpos;
+    }
+    else { // odd width
+      pos = ypos * WIDTH + HEIGHT - xpos -1;
+    }
+  }
+  return pos;
 }
 
 /**
@@ -77,37 +107,44 @@ void setLED(int pos, int red, int green, int blue) {
 }
 
 /**
- * Set the LED at pos in the strip to the defined color
- * @param pos   position in the array
+ * Set the LED at (xpos, ypos) in the strip to the defined color
+ * @param xpos  x coordinate
+ * @param ypos  y coordinate
  * @param red   red portion of color
  * @param green green portion of color
  * @param blue  blue portion of color
  */
-void setLED(int xpos, int yxpos, int red, int green, int blue) {
-  ///TODO: Test this function
-  int pos = 0;
-  if (ypos % 2 == 0) { // if we are on an even line, add y
-    pos = ypos * WIDTH + xpos;
-  }
-  else { // on an odd line, take y
-    if (WIDTH % 2 == 0) { // even width
-      pos = ypos * WIDTH + HEIGHT - xpos;
-    }
-    else { // odd width
-      pos = ypos * WIDTH + HEIGHT - xpos -1;
-    }
-  }
+void setLED(int xpos, int ypos, int red, int green, int blue) {
+  int pos = coordToPos(xpos, ypos);
   setLED(pos, red, green, blue);
 }
 
 /**
- * Get the color of the LED at pos in the strip
- * @param pos   position in the array
+ * Get the colour of the LED in pos position in the strip
+ * @param pos   position in the strip
  * @return      color of LED at pos
  */
 struct led getLED(int pos) {
   return ledArray[pos];
 }
+
+/**
+ * Get the colour of the LED at (xpos, ypos)
+ * @param xpos  x coordinate
+ * @param ypos  y coordinate
+ * @return      color of LED at (xpos, ypos)
+ */
+struct led getLED(int xpos, int ypos) {
+  int pos = coordToPos(xpos, ypos);
+  return ledArray[pos];
+}
+
+// ================================ WEB PAGES ================================
+
+///TODO: Comment this stuff
+///TODO: Reduce code reuse in the web page functions
+///TODO: Start using post requests
+///TODO: Make a function to set all the lights at once
 
 // Sets the light sequence to one that is predefined
 void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
@@ -116,7 +153,7 @@ void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url
   char value[VALUELEN];
   
   server.httpSuccess();
-  // Kill the connection before doing anything if all they want is the head
+  // Kill the connection before doing anything if all they want is head
   if (type == WebServer::HEAD) {
     return;
   }
@@ -149,7 +186,7 @@ void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail
   int b = -1;
   
   server.httpSuccess();
-  // Kill the connection before doing anything if all they want is the head
+  // Kill the connection before doing anything if all they want is head
   if (type == WebServer::HEAD) {
     return;
   }
@@ -180,13 +217,6 @@ void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail
   else {
     server.print("Unknown");
   }
-  
-  //server.print(xPos);
-  //server.print(yPos);
-  //server.print(r);
-  //server.print(g);
-  //server.print(b);
-  
   if (xPos != -1 && yPos != -1 && r != -1 && g != -1 && b != -1) {
     setLED(xPos, r, g, b);
   }
@@ -198,7 +228,7 @@ void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *u
   char value[VALUELEN];
   
   server.httpSuccess();
-  // Kill the connection before doing anything if all they want is the head
+  // Kill the connection before doing anything if all they want is head
   if (type == WebServer::HEAD) {
     return;
   }
@@ -207,8 +237,6 @@ void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *u
       while (strlen(url_tail)) {
         rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
         if (rc != URLPARAM_EOS) {
-          //Serial.println(name);
-          //Serial.println(value);
           if (String(name).equals("bright")) {
             strip.setBrightness(atoi(value));
             server.print(atoi(value));
@@ -222,6 +250,11 @@ void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *u
     server.print("Unknown");
   }
 }
+
+// ============================== LIGHT DISPLAYS ==============================
+
+///TODO: Comment this stuff
+///TODO: Make sure these functions don't block. Otherwise web requests are slow
 
 // Fill the dots one after the other with a color
 void colorWipe(uint32_t c, uint8_t wait) {
@@ -256,37 +289,38 @@ void rainbowCycle(uint8_t wait) {
   }
 }
 
-//Theatre-style crawling lights.
+// Theatre-style crawling lights.
 void theaterChase(uint32_t c, uint8_t wait) {
-  for (int j=0; j<10; j++) { //do 10 cycles of chasing
+  for (int j=0; j<10; j++) { // do 10 cycles of chasing
     for (int q=0; q < 3; q++) {
       for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, c); //turn every third pixel on
+        strip.setPixelColor(i+q, c); // turn every third pixel on
       }
       strip.show();
      
       delay(wait);
      
       for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0); //turn every third pixel off
+        strip.setPixelColor(i+q, 0); // turn every third pixel off
       }
     }
   }
 }
 
-//Theatre-style crawling lights with rainbow effect
+// Theatre-style crawling lights with rainbow effect
 void theaterChaseRainbow(uint8_t wait) {
-  for (int j=0; j < 256; j++) {     // cycle all 256 colors in the wheel
+  for (int j=0; j < 256; j++) { // cycle all 256 colors in the wheel
     for (int q=0; q < 3; q++) {
         for (int i=0; i < strip.numPixels(); i=i+3) {
-          strip.setPixelColor(i+q, Wheel( (i+j) % 255)); //turn every third pixel on
+          // turn every third pixel on
+          strip.setPixelColor(i+q, Wheel( (i+j) % 255));
         }
         strip.show();
        
         delay(wait);
        
         for (int i=0; i < strip.numPixels(); i=i+3) {
-          strip.setPixelColor(i+q, 0); //turn every third pixel off
+          strip.setPixelColor(i+q, 0); // turn every third pixel off
         }
     }
   }
@@ -306,31 +340,19 @@ uint32_t Wheel(byte WheelPos) {
   }
 }
 
+// =============================== MAIN PROGRAM ===============================
+
 void setup() {
-  // Open //Serial communications and wait for port to open:
-  //Serial.begin(9600);
-   //while (!//Serial) {
-    //; // wait for //Serial port to connect. Needed for Leonardo only
-  //}
-  //Serial.println("//Serial Port Opened");
-  
-  // start the Ethernet connection and the server:
-  //Serial.println("Starting Ethernet");
+  // Start Ethernet
   Ethernet.begin(mac, ip);
-  
-  //Serial.println("Setting Up Server");
+  // Set up webpages
   webserver.setDefaultCommand(&webSetSequence);
   webserver.addCommand("custom", &webSetSequence);
   webserver.addCommand("individual", &webSetLED);
   webserver.addCommand("brightness", &webSetBrightness);
-  
-  //Serial.println("Starting Server");
+  // Start Webserver
   webserver.begin();
-  //Serial.print("server is at ");
-  //Serial.println(Ethernet.localIP());
-  
-  // Initialize our LED Array
-  
+  // Turn our lights on
   for (int i = 0; i < STRIPLENGTH; i ++) {
     ledArray[i].red = (char) 128;
     ledArray[i].green = (char) 128;
@@ -339,7 +361,6 @@ void setup() {
   
   // Start Lights
   strip.begin();
-  //strip.show();
   strip.setBrightness(128);
   showArray();
 }
@@ -351,7 +372,6 @@ void loop()
   int len = 64;
   webserver.processConnection(buff, &len);
   position = position % 256;
-  //rainbow(10);
   // Run our light sequence after checking for we requests
   switch (lightOption) {
     case 0: // Don't change the lights at all
@@ -363,6 +383,6 @@ void loop()
       lightOption = 1;
       break;
   }
-  
+  // Show our lights
   showArray();
 }
