@@ -1,14 +1,19 @@
 /*
  BlinkenLights
  
- by Mitchell Pomery [BG3] with help from Andrew Adamson [BOB]
- modified 20 Jan 2014
+ Code by Mitchell Pomery [BG3] with help from Andrew Adamson [BOB]
+ Hardware by Andrew Adamson [BOB] with help from Mitchell Pomery [BG3]
+ 
+ Get the dates from the git commits.
+ 
+ The LED strip should be wired from the top left corner and zig zag down
  
  */
 
 ///TODO: Vary light pattern randomly
 ///TODO: Make run when no network is present
 ///TODO: Recover when network reappears
+///TODO: Make everything use posts. maybe
 
 #include <Ethernet.h> // Needed For Reasons
 #include <WebServer.h> // Lets us easily do web requests
@@ -31,25 +36,26 @@ struct led {
   char blue;
 };
 
-int position = 0;
-
-// led array
-struct led ledArray[STRIPLENGTH];
-char brightness = (char) 128;
-
+// For controlling the lights
+int position = 0; // How far through the cycle we are
+struct led ledArray[STRIPLENGTH]; // led array
+char brightness = (char) 128; //Brightness of the LEDs
+  // We seem to have issues at the moment putting this up to the maximum (255)
+  // Most likely due to the fact the LED strip is underpowered
+int lightOption = 0; // Which predefined light sequence we are running
 
 static uint8_t mac[] = { 0xC0, 0xCA, 0xC0, 0x1A, 0x19, 0x82 }; // C0CA C01A 1982
-IPAddress ip(130,95,13,96);
+IPAddress ip(130,95,13,96); // 130.95.13.96 (Can we forcefully take .82?
 
-int lightOption = 0;
 
 // Set up our light strip
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(STRIPLENGTH, PIN, NEO_GRB + NEO_KHZ800);
-
 // Set up our webserver
 WebServer webserver(PREFIX, 80);
 
-// showArray
+/**
+ * Change the lights to our updated array
+ */
 void showArray() {
   for (int i = 0; i < STRIPLENGTH; i ++) {
     strip.setPixelColor(i, (int) ledArray[i].red, (int) ledArray[i].green, (int) ledArray[i].blue);
@@ -57,11 +63,50 @@ void showArray() {
   strip.show();
 }
 
-// setLED
+/**
+ * Set the LED at pos in the strip to the defined color
+ * @param pos   position in the array
+ * @param red   red portion of color
+ * @param green green portion of color
+ * @param blue  blue portion of color
+ */
 void setLED(int pos, int red, int green, int blue) {
   ledArray[pos].red = red;
   ledArray[pos].green = green;
   ledArray[pos].blue = blue;
+}
+
+/**
+ * Set the LED at pos in the strip to the defined color
+ * @param pos   position in the array
+ * @param red   red portion of color
+ * @param green green portion of color
+ * @param blue  blue portion of color
+ */
+void setLED(int xpos, int yxpos, int red, int green, int blue) {
+  ///TODO: Test this function
+  int pos = 0;
+  if (ypos % 2 == 0) { // if we are on an even line, add y
+    pos = ypos * WIDTH + xpos;
+  }
+  else { // on an odd line, take y
+    if (WIDTH % 2 == 0) { // even width
+      pos = ypos * WIDTH + HEIGHT - xpos;
+    }
+    else { // odd width
+      pos = ypos * WIDTH + HEIGHT - xpos -1;
+    }
+  }
+  setLED(pos, red, green, blue);
+}
+
+/**
+ * Get the color of the LED at pos in the strip
+ * @param pos   position in the array
+ * @return      color of LED at pos
+ */
+struct led getLED(int pos) {
+  return ledArray[pos];
 }
 
 // Sets the light sequence to one that is predefined
@@ -75,24 +120,11 @@ void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url
   if (type == WebServer::HEAD) {
     return;
   }
-  else if (type == WebServer::POST) {
-    while (server.readPOSTparam(name, NAMELEN, value, VALUELEN))
-    {
-      //Serial.print(name);
-      //Serial.print(" = ");
-      //Serial.println(value);
-      //if (name == "seq") {
-      //  lightOption = value;
-      //}
-    }
-  }
-  else if (type == WebServer::GET) { //WebServer::POST
+  else if (type == WebServer::GET) {
     if (strlen(url_tail)) {
       while (strlen(url_tail)) {
         rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
         if (rc != URLPARAM_EOS) {
-          //Serial.println(name);
-          //Serial.println(value);
           if (String(name).equals("seq")) {
             lightOption = atoi(value);
             server.print(lightOption);
@@ -100,11 +132,9 @@ void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url
         }
       }
     }
-    
-    ///TODO: Get ?seq=X and set lightOption to X
   }
   else {
-    server.print("Unknown");
+    server.print("Unknown Request");
   }
 }
 
@@ -112,7 +142,6 @@ void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail
   URLPARAM_RESULT rc;
   char name[NAMELEN];
   char value[VALUELEN];
-  
   int xPos = -1;
   int yPos = -1;
   int r = -1;
@@ -124,24 +153,11 @@ void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail
   if (type == WebServer::HEAD) {
     return;
   }
-  else if (type == WebServer::POST) {
-    while (server.readPOSTparam(name, NAMELEN, value, VALUELEN))
-    {
-      //Serial.print(name);
-      //Serial.print(" = ");
-      //Serial.println(value);
-      //if (name == "seq") {
-      //  lightOption = value;
-      //}
-    }
-  }
-  else if (type == WebServer::GET) { //WebServer::POST
+  else if (type == WebServer::GET) {
     if (strlen(url_tail)) {
       while (strlen(url_tail)) {
         rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
         if (rc != URLPARAM_EOS) {
-          //Serial.println(name);
-          //Serial.println(value);
           if (String(name).equals("x")) {
             xPos = atoi(value);
           }
@@ -165,11 +181,11 @@ void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail
     server.print("Unknown");
   }
   
-  //Serial.println(xPos);
-  //Serial.println(yPos);
-  //Serial.println(r);
-  //Serial.println(g);
-  //Serial.println(b);
+  //server.print(xPos);
+  //server.print(yPos);
+  //server.print(r);
+  //server.print(g);
+  //server.print(b);
   
   if (xPos != -1 && yPos != -1 && r != -1 && g != -1 && b != -1) {
     setLED(xPos, r, g, b);
@@ -181,27 +197,10 @@ void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *u
   char name[NAMELEN];
   char value[VALUELEN];
   
-  int xPos = -1;
-  int yPos = -1;
-  int r = -1;
-  int g = -1;
-  int b = -1;
-  
   server.httpSuccess();
   // Kill the connection before doing anything if all they want is the head
   if (type == WebServer::HEAD) {
     return;
-  }
-  else if (type == WebServer::POST) {
-    while (server.readPOSTparam(name, NAMELEN, value, VALUELEN))
-    {
-      //Serial.print(name);
-      //Serial.print(" = ");
-      //Serial.println(value);
-      //if (name == "seq") {
-      //  lightOption = value;
-      //}
-    }
   }
   else if (type == WebServer::GET) { //WebServer::POST
     if (strlen(url_tail)) {
@@ -210,8 +209,10 @@ void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *u
         if (rc != URLPARAM_EOS) {
           //Serial.println(name);
           //Serial.println(value);
-          if (String(name).equals("brightness")) {
+          if (String(name).equals("bright")) {
             strip.setBrightness(atoi(value));
+            server.print(atoi(value));
+            strip.show();
           }
         }
       }
@@ -339,7 +340,7 @@ void setup() {
   // Start Lights
   strip.begin();
   //strip.show();
-  strip.setBrightness(32);
+  strip.setBrightness(128);
   showArray();
 }
 
@@ -350,42 +351,18 @@ void loop()
   int len = 64;
   webserver.processConnection(buff, &len);
   position = position % 256;
-  rainbow(10);
+  //rainbow(10);
   // Run our light sequence after checking for we requests
-  /*switch (lightOption) {
-    case 0:
+  switch (lightOption) {
+    case 0: // Don't change the lights at all
       break;
-    case 1:
+    case 1: // Wipe the LED's to Red
       colorWipe(strip.Color(255, 0, 0), 50); // Red
       break;
-    case 2:
-      colorWipe(strip.Color(0, 255, 0), 50); // Green
-      break;
-    case 3:
-      colorWipe(strip.Color(0, 0, 255), 50); // Blue
-      break;
-    case 4:
-      theaterChase(strip.Color(127, 127, 127), 50); // White
-      break;
-    case 5:
-      theaterChase(strip.Color(127,   0,   0), 50); // Red
-      break;
-    case 6:
-      theaterChase(strip.Color(  0,   0, 127), 50); // Blue
-      break;
-    case 7:
-      rainbow(100);
-      break;
-    case 8:
-      rainbowCycle(20);
-      break;
-    case 9:
-      theaterChaseRainbow(50);
-      break;
     default:
-      lightOption = 7;
+      lightOption = 1;
       break;
-  }*/
+  }
   
   showArray();
 }
