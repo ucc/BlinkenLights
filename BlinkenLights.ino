@@ -1,4 +1,4 @@
-/*
+/**
  BlinkenLights
  
  Code by Mitchell Pomery [BG3] with help from Andrew Adamson [BOB]
@@ -65,20 +65,23 @@ WebServer webserver(PREFIX, 80);
 void showArray() {
   ///TODO: Rename this to something better?
   for (int i = 0; i < STRIPLENGTH; i ++) {
-    strip.setPixelColor(i, (int) ledArray[i].red, (int) ledArray[i].green, (int) ledArray[i].blue);
+    strip.setPixelColour(i, (int) ledArray[i].red, (int) ledArray[i].green, (int) ledArray[i].blue);
   }
   strip.show();
 }
 
 /**
- * Set the LED at pos in the strip to the defined color
+ * go from (x,y) to position in the array
  * @param xpos  x coordinate
  * @param ypos  y cordinate
- * @return      position in the array
+ * @return      position in the array, -1 if out of array
  */
 int coordToPos(int xpos, int ypos) {
   ///TODO: Test this function
   int pos = 0;
+  if ((xpos < 0 || xpos >= WIDTH) || (ypos < 0 || ypos >= HEIGHT)) {
+    return -1;
+  }
   if (ypos % 2 == 0) { // if we are on an even line, add y
     pos = ypos * WIDTH + xpos;
   }
@@ -94,11 +97,11 @@ int coordToPos(int xpos, int ypos) {
 }
 
 /**
- * Set the LED at pos in the strip to the defined color
+ * Set the LED at pos in the strip to the defined colour
  * @param pos   position in the array
- * @param red   red portion of color
- * @param green green portion of color
- * @param blue  blue portion of color
+ * @param red   red portion of colour
+ * @param green green portion of colour
+ * @param blue  blue portion of colour
  */
 void setLED(int pos, int red, int green, int blue) {
   ledArray[pos].red = red;
@@ -107,12 +110,12 @@ void setLED(int pos, int red, int green, int blue) {
 }
 
 /**
- * Set the LED at (xpos, ypos) in the strip to the defined color
+ * Set the LED at (xpos, ypos) in the strip to the defined colour
  * @param xpos  x coordinate
  * @param ypos  y coordinate
- * @param red   red portion of color
- * @param green green portion of color
- * @param blue  blue portion of color
+ * @param red   red portion of colour
+ * @param green green portion of colour
+ * @param blue  blue portion of colour
  */
 void setLED(int xpos, int ypos, int red, int green, int blue) {
   int pos = coordToPos(xpos, ypos);
@@ -122,7 +125,7 @@ void setLED(int xpos, int ypos, int red, int green, int blue) {
 /**
  * Get the colour of the LED in pos position in the strip
  * @param pos   position in the strip
- * @return      color of LED at pos
+ * @return      colour of LED at pos
  */
 struct led getLED(int pos) {
   return ledArray[pos];
@@ -132,7 +135,7 @@ struct led getLED(int pos) {
  * Get the colour of the LED at (xpos, ypos)
  * @param xpos  x coordinate
  * @param ypos  y coordinate
- * @return      color of LED at (xpos, ypos)
+ * @return      colour of LED at (xpos, ypos)
  */
 struct led getLED(int xpos, int ypos) {
   int pos = coordToPos(xpos, ypos);
@@ -143,10 +146,16 @@ struct led getLED(int xpos, int ypos) {
 
 ///TODO: Comment this stuff
 ///TODO: Reduce code reuse in the web page functions
-///TODO: Start using post requests
 ///TODO: Make a function to set all the lights at once
 
-// Sets the light sequence to one that is predefined
+/**
+ * Sets the light sequence to one that is predefined.
+ * Set it to 0 to disable the cycling of lights.
+ * @param server        
+ * @param type          
+ * @param url_tail      
+ * @param tail_complete 
+ */
 void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
@@ -175,6 +184,13 @@ void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url
   }
 }
 
+/**
+ * Set a specific LED to a specific colour
+ * @param server        
+ * @param type          
+ * @param url_tail      
+ * @param tail_complete 
+ */
 void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
@@ -222,6 +238,13 @@ void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail
   }
 }
 
+/**
+ * Set the brightness to a specific magnitude
+ * @param server        
+ * @param type          
+ * @param url_tail      
+ * @param tail_complete 
+ */
 void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
@@ -253,94 +276,119 @@ void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *u
 
 // ============================== LIGHT DISPLAYS ==============================
 
-///TODO: Comment this stuff
-///TODO: Make sure these functions don't block. Otherwise web requests are slow
-
-// Fill the dots one after the other with a color
-void colorWipe(uint32_t c, uint8_t wait) {
+/**
+ * Fill the dots one after the other with a colour
+ * @param colour colour to fill the array with
+ * @param wait  delay between colour changes
+ */
+void colourWipe(uint32_t c, uint8_t wait) {
+  ///TODO: stop this blocking
   for(uint16_t i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColor(i, c);
+      strip.setPixelColour(i, c);
       strip.show();
       delay(wait);
   }
 }
 
+/**
+ * 
+ * @param wait  delay between colour changes
+ */
 void rainbow(uint8_t wait) {
   uint16_t i, j;
-
+  
   for(i=0; i<strip.numPixels(); i++) {
-    strip.setPixelColor(i, Wheel((i+position) & 255));
+    strip.setPixelColour(i, Wheel((i+position) & 255));
   }
   strip.show();
   delay(wait);
   position++;
 }
 
-// Slightly different, this makes the rainbow equally distributed throughout
+/**
+ * Slightly different, this makes the rainbow equally distributed throughout
+ * @param wait  delay between colour changes
+ */
 void rainbowCycle(uint8_t wait) {
+  ///TODO: stop this blocking
   uint16_t i, j;
 
-  for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+  for(j=0; j<256*5; j++) { // 5 cycles of all colours on wheel
     for(i=0; i< strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+      strip.setPixelColour(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
     }
     strip.show();
     delay(wait);
   }
 }
 
-// Theatre-style crawling lights.
+/**
+ * Theatre-style crawling lights.
+ * @param colour colour to fill the array with
+ * @param wait  delay between colour changes
+ */
 void theaterChase(uint32_t c, uint8_t wait) {
+  ///TODO: stop this blocking
   for (int j=0; j<10; j++) { // do 10 cycles of chasing
     for (int q=0; q < 3; q++) {
       for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, c); // turn every third pixel on
+        strip.setPixelColour(i+q, c); // turn every third pixel on
       }
       strip.show();
      
       delay(wait);
      
       for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0); // turn every third pixel off
+        strip.setPixelColour(i+q, 0); // turn every third pixel off
       }
     }
   }
 }
 
-// Theatre-style crawling lights with rainbow effect
+/**
+ * Theatre-style crawling lights with rainbow effect
+ * @param wait  delay between colour changes
+ */
 void theaterChaseRainbow(uint8_t wait) {
-  for (int j=0; j < 256; j++) { // cycle all 256 colors in the wheel
+  ///TODO: stop this blocking
+  for (int j=0; j < 256; j++) { // cycle all 256 colours in the wheel
     for (int q=0; q < 3; q++) {
         for (int i=0; i < strip.numPixels(); i=i+3) {
           // turn every third pixel on
-          strip.setPixelColor(i+q, Wheel( (i+j) % 255));
+          strip.setPixelColour(i+q, Wheel( (i+j) % 255));
         }
         strip.show();
        
         delay(wait);
        
         for (int i=0; i < strip.numPixels(); i=i+3) {
-          strip.setPixelColor(i+q, 0); // turn every third pixel off
+          strip.setPixelColour(i+q, 0); // turn every third pixel off
         }
     }
   }
 }
 
-// Input a value 0 to 255 to get a color value.
-// The colours are a transition r - g - b - back to r.
+/**
+ * Input a value 0 to 255 to get a colour value.
+ * The colours are a transition r - g - b - back to r.
+ * @param WheelPos  Where we currently are in the cycle
+ * @return          A new colour
+ */
 uint32_t Wheel(byte WheelPos) {
   if(WheelPos < 85) {
-   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+   return strip.colour(WheelPos * 3, 255 - WheelPos * 3, 0);
   } else if(WheelPos < 170) {
    WheelPos -= 85;
-   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+   return strip.colour(255 - WheelPos * 3, 0, WheelPos * 3);
   } else {
    WheelPos -= 170;
-   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+   return strip.colour(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
 
 // =============================== MAIN PROGRAM ===============================
+
+///TODO: Comment this stuff
 
 void setup() {
   // Start Ethernet
@@ -377,7 +425,7 @@ void loop()
     case 0: // Don't change the lights at all
       break;
     case 1: // Wipe the LED's to Red
-      colorWipe(strip.Color(255, 0, 0), 50); // Red
+      colourWipe(strip.colour(255, 0, 0), 50); // Red
       break;
     default:
       lightOption = 1;
