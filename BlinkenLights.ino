@@ -15,7 +15,7 @@
 ///TODO: Recover when network reappears
 ///TODO: Make everything use posts. maybe
 ///TODO: Sanity checks. Everywhere. Until I'm Insane.
-///TODO: Figure out memory usage. If we max memory we will see weird behaviour.
+///TODO: Figure out rough memory usage. If we max memory we will see weird behaviour.
 
 #include <Ethernet.h> // Needed For Reasons
 #include <WebServer.h> // Lets us easily do web requests
@@ -30,6 +30,7 @@
 #define WIDTH 7 // How many LEDs wide our array is
 #define HEIGHT 6 // How many LEDs high our array is
 #define STRIPLENGTH 42 // Number of LED's in light strip
+#define NUMSEQUENCES 8 // Number predefined sequences
 
 // Used to store the LED's values
 struct led {
@@ -37,6 +38,11 @@ struct led {
   char green;
   char blue;
 };
+
+// Used for our default light sequences
+char red = (int) 255;
+char green = (int) 255;
+char blue = (int) 255;
 
 // For controlling the lights - Should only be changed by the functions
 int position = 0; // How far through the cycle we are
@@ -52,7 +58,8 @@ IPAddress ip(130,95,13,96); // 130.95.13.96 (Can we forcefully take .82?
 // If we remove the ip address, we will automatically use DHCP
 
 // Set up our light strip
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(STRIPLENGTH, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(STRIPLENGTH, PIN,
+  NEO_GRB + NEO_KHZ800);
 // Set up our webserver
 WebServer webserver(PREFIX, 80);
 
@@ -62,10 +69,9 @@ WebServer webserver(PREFIX, 80);
  * Change the lights to our updated array
  * We should probably get rid of this soonish
  */
-void showArray() {
-  ///TODO: Rename this to something better?
+void updateLights() {
   for (int i = 0; i < STRIPLENGTH; i ++) {
-    strip.setPixelColour(i, (int) ledArray[i].red, (int) ledArray[i].green, (int) ledArray[i].blue);
+    strip.setPixelColor(i, (int) ledArray[i].red, (int) ledArray[i].green, (int) ledArray[i].blue);
   }
   strip.show();
 }
@@ -104,9 +110,11 @@ int coordToPos(int xpos, int ypos) {
  * @param blue  blue portion of colour
  */
 void setLED(int pos, int red, int green, int blue) {
-  ledArray[pos].red = red;
-  ledArray[pos].green = green;
-  ledArray[pos].blue = blue;
+  if (pos > 0 && pos < STRIPLENGTH) {
+    ledArray[pos].red = red;
+    ledArray[pos].green = green;
+    ledArray[pos].blue = blue;
+  }
 }
 
 /**
@@ -156,7 +164,8 @@ struct led getLED(int xpos, int ypos) {
  * @param url_tail      
  * @param tail_complete 
  */
-void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
+void webSetSequence(WebServer &server, WebServer::ConnectionType type,
+char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
   char value[VALUELEN];
@@ -174,6 +183,7 @@ void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url
           if (String(name).equals("seq")) {
             lightOption = atoi(value);
             server.print(lightOption);
+            position = 0;
           }
         }
       }
@@ -191,7 +201,8 @@ void webSetSequence(WebServer &server, WebServer::ConnectionType type, char *url
  * @param url_tail      
  * @param tail_complete 
  */
-void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
+void webSetLED(WebServer &server, WebServer::ConnectionType type,
+char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
   char value[VALUELEN];
@@ -245,7 +256,8 @@ void webSetLED(WebServer &server, WebServer::ConnectionType type, char *url_tail
  * @param url_tail      
  * @param tail_complete 
  */
-void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *url_tail, bool tail_complete) {
+void webSetBrightness(WebServer &server, WebServer::ConnectionType type,
+char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
   char value[VALUELEN];
@@ -282,23 +294,22 @@ void webSetBrightness(WebServer &server, WebServer::ConnectionType type, char *u
  * @param wait  delay between colour changes
  */
 void colourWipe(uint32_t c, uint8_t wait) {
-  ///TODO: stop this blocking
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
-      strip.setPixelColour(i, c);
-      strip.show();
-      delay(wait);
+  strip.setPixelColor(position, c);
+  strip.show();
+  delay(wait);
+  position++;
+  if (position > STRIPLENGTH) {
+    position = 256;
   }
 }
 
 /**
- * 
+ * Turn the light strip into a rainbow
  * @param wait  delay between colour changes
  */
 void rainbow(uint8_t wait) {
-  uint16_t i, j;
-  
-  for(i=0; i<strip.numPixels(); i++) {
-    strip.setPixelColour(i, Wheel((i+position) & 255));
+  for(int i = 0; i <strip.numPixels(); i++) {
+    strip.setPixelColor(i, Wheel((i+position) & 255));
   }
   strip.show();
   delay(wait);
@@ -310,15 +321,15 @@ void rainbow(uint8_t wait) {
  * @param wait  delay between colour changes
  */
 void rainbowCycle(uint8_t wait) {
-  ///TODO: stop this blocking
-  uint16_t i, j;
-
-  for(j=0; j<256*5; j++) { // 5 cycles of all colours on wheel
-    for(i=0; i< strip.numPixels(); i++) {
-      strip.setPixelColour(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
-    }
-    strip.show();
-    delay(wait);
+  uint16_t j;
+  for(int j = 0; j < 256 * 5; j++) { // 5 cycles of all colours on wheel
+    strip.setPixelColor(position, Wheel(((position * 256 / strip.numPixels()) + j) & 255));
+  }
+  strip.show();
+  delay(wait);
+  position++;
+  if (position > STRIPLENGTH) {
+    position = 256;
   }
 }
 
@@ -328,18 +339,18 @@ void rainbowCycle(uint8_t wait) {
  * @param wait  delay between colour changes
  */
 void theaterChase(uint32_t c, uint8_t wait) {
-  ///TODO: stop this blocking
+  ///TODO: stop this blocking. Somehow
   for (int j=0; j<10; j++) { // do 10 cycles of chasing
     for (int q=0; q < 3; q++) {
       for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColour(i+q, c); // turn every third pixel on
+        strip.setPixelColor(i+q, c); // turn every third pixel on
       }
       strip.show();
      
       delay(wait);
      
       for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColour(i+q, 0); // turn every third pixel off
+        strip.setPixelColor(i+q, 0); // turn every third pixel off
       }
     }
   }
@@ -350,19 +361,19 @@ void theaterChase(uint32_t c, uint8_t wait) {
  * @param wait  delay between colour changes
  */
 void theaterChaseRainbow(uint8_t wait) {
-  ///TODO: stop this blocking
+  ///TODO: stop this blocking. Somehow
   for (int j=0; j < 256; j++) { // cycle all 256 colours in the wheel
     for (int q=0; q < 3; q++) {
         for (int i=0; i < strip.numPixels(); i=i+3) {
           // turn every third pixel on
-          strip.setPixelColour(i+q, Wheel( (i+j) % 255));
+          strip.setPixelColor(i+q, Wheel( (i+j) % 255));
         }
         strip.show();
        
         delay(wait);
        
         for (int i=0; i < strip.numPixels(); i=i+3) {
-          strip.setPixelColour(i+q, 0); // turn every third pixel off
+          strip.setPixelColor(i+q, 0); // turn every third pixel off
         }
     }
   }
@@ -376,13 +387,13 @@ void theaterChaseRainbow(uint8_t wait) {
  */
 uint32_t Wheel(byte WheelPos) {
   if(WheelPos < 85) {
-   return strip.colour(WheelPos * 3, 255 - WheelPos * 3, 0);
+   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
   } else if(WheelPos < 170) {
    WheelPos -= 85;
-   return strip.colour(255 - WheelPos * 3, 0, WheelPos * 3);
+   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
   } else {
    WheelPos -= 170;
-   return strip.colour(0, WheelPos * 3, 255 - WheelPos * 3);
+   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
 
@@ -410,7 +421,7 @@ void setup() {
   // Start Lights
   strip.begin();
   strip.setBrightness(128);
-  showArray();
+  updateLights();
 }
 
 void loop()
@@ -419,18 +430,29 @@ void loop()
   char buff[64];
   int len = 64;
   webserver.processConnection(buff, &len);
-  position = position % 256;
+  if (position > 255) {
+    position = position % 256;
+    if (lightOption != 0) {
+      lightOption++;
+    }
+  }
+  if (lightOption > NUMSEQUENCES) {
+    lightOption = 1;
+  }
   // Run our light sequence after checking for we requests
+  ///TODO: Make these switches nicer
   switch (lightOption) {
     case 0: // Don't change the lights at all
       break;
     case 1: // Wipe the LED's to Red
-      colourWipe(strip.colour(255, 0, 0), 50); // Red
+      colourWipe(strip.Color(red, green, blue), 50); // Red
       break;
+    case 2:
+      
     default:
       lightOption = 1;
       break;
   }
   // Show our lights
-  showArray();
+  updateLights();
 }
