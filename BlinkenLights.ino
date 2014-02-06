@@ -298,7 +298,7 @@ void colourWipe(uint32_t c, uint8_t wait) {
   strip.show();
   delay(wait);
   position++;
-  if (position > STRIPLENGTH) {
+  if (position >= STRIPLENGTH) {
     position = 256;
   }
 }
@@ -308,12 +308,16 @@ void colourWipe(uint32_t c, uint8_t wait) {
  * @param wait  delay between colour changes
  */
 void rainbow(uint8_t wait) {
-  for(int i = 0; i <strip.numPixels(); i++) {
+  int outOf = 256;
+  for (int i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, Wheel((i+position) & 255));
   }
   strip.show();
   delay(wait);
   position++;
+  if (position > outOf) {
+    position = 0;
+  }
 }
 
 /**
@@ -321,15 +325,16 @@ void rainbow(uint8_t wait) {
  * @param wait  delay between colour changes
  */
 void rainbowCycle(uint8_t wait) {
-  uint16_t j;
-  for(int j = 0; j < 256 * 5; j++) { // 5 cycles of all colours on wheel
-    strip.setPixelColor(position, Wheel(((position * 256 / strip.numPixels()) + j) & 255));
+  int outOf = 256 * 5;
+  uint16_t i;
+  for(i=0; i< strip.numPixels(); i++) {
+    strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + position) & 255));
   }
   strip.show();
   delay(wait);
   position++;
-  if (position > STRIPLENGTH) {
-    position = 256;
+  if (position >= outOf) {
+    position = 0;
   }
 }
 
@@ -340,19 +345,20 @@ void rainbowCycle(uint8_t wait) {
  */
 void theaterChase(uint32_t c, uint8_t wait) {
   ///TODO: stop this blocking. Somehow
-  for (int j=0; j<10; j++) { // do 10 cycles of chasing
-    for (int q=0; q < 3; q++) {
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, c); // turn every third pixel on
-      }
-      strip.show();
-     
-      delay(wait);
-     
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0); // turn every third pixel off
-      }
+  int outOf = 10;
+  for (int q=0; q < 3; q++) {
+    for (int i=0; i < strip.numPixels(); i=i+3) {
+      strip.setPixelColor(i+q, c); // turn every third pixel on
     }
+    strip.show();
+    delay(wait);
+    for (int i=0; i < strip.numPixels(); i=i+3) {
+      strip.setPixelColor(i+q, 0); // turn every third pixel off
+    }
+  }
+  position++;
+  if (position >= outOf) {
+    position = 0;
   }
 }
 
@@ -362,20 +368,24 @@ void theaterChase(uint32_t c, uint8_t wait) {
  */
 void theaterChaseRainbow(uint8_t wait) {
   ///TODO: stop this blocking. Somehow
-  for (int j=0; j < 256; j++) { // cycle all 256 colours in the wheel
-    for (int q=0; q < 3; q++) {
-        for (int i=0; i < strip.numPixels(); i=i+3) {
-          // turn every third pixel on
-          strip.setPixelColor(i+q, Wheel( (i+j) % 255));
-        }
-        strip.show();
-       
-        delay(wait);
-       
-        for (int i=0; i < strip.numPixels(); i=i+3) {
-          strip.setPixelColor(i+q, 0); // turn every third pixel off
-        }
-    }
+  int outOf = 256;
+  for (int q=0; q < 3; q++) {
+      for (int i=0; i < strip.numPixels(); i=i+3) {
+        // turn every third pixel on
+        strip.setPixelColor(i+q, Wheel( (i+position) % 255));
+      }
+      strip.show();
+     
+      delay(wait);
+     
+      for (int i=0; i < strip.numPixels(); i=i+3) {
+        strip.setPixelColor(i+q, 0); // turn every third pixel off
+      }
+  }
+  
+  position++;
+  if (position >= outOf) {
+    position = 0;
   }
 }
 
@@ -402,8 +412,12 @@ uint32_t Wheel(byte WheelPos) {
 ///TODO: Comment this stuff
 
 void setup() {
+  Serial.begin(9600);
+  while(!Serial);
+  Serial.println("Starting Ethernet");
   // Start Ethernet
   Ethernet.begin(mac, ip);
+  Serial.println("Ethernet Started");
   // Set up webpages
   webserver.setDefaultCommand(&webSetSequence);
   webserver.addCommand("custom", &webSetSequence);
@@ -430,29 +444,38 @@ void loop()
   char buff[64];
   int len = 64;
   webserver.processConnection(buff, &len);
-  if (position > 255) {
-    position = position % 256;
-    if (lightOption != 0) {
-      lightOption++;
-    }
-  }
   if (lightOption > NUMSEQUENCES) {
-    lightOption = 1;
+    //lightOption = 1;
   }
+  
   // Run our light sequence after checking for we requests
   ///TODO: Make these switches nicer
   switch (lightOption) {
     case 0: // Don't change the lights at all
+      lightOption = 2;
       break;
     case 1: // Wipe the LED's to Red
-      colourWipe(strip.Color(red, green, blue), 50); // Red
+      colourWipe(strip.Color(red, green, blue), 50);
+      Serial.println("ColourWipe");
       break;
     case 2:
-      
+      rainbow(20);
+      Serial.println("Rainbow");
+      break;
+    case 3:
+      rainbowCycle(20);
+      Serial.println("RainbowCycle");
+      break;
+    case 4:
+      theaterChaseRainbow(20);
+      Serial.println("TheaterChaseRainbow");
+      break;
     default:
       lightOption = 1;
       break;
   }
   // Show our lights
-  updateLights();
+  if (position == 0) { // if we have completed a sequence, move to the next one
+    lightOption++;
+  }
 }
