@@ -47,7 +47,7 @@ char blue = (int) 255;
 // For controlling the lights - Should only be changed by the functions
 int position = 0; // How far through the cycle we are
 struct led ledArray[STRIPLENGTH]; // led array
-int lightOption = 0; // Which predefined light sequence we are running
+int lightOption = 1; // Which predefined light sequence we are running
 char brightness = (char) 128; //Brightness of the LEDs
   // We seem to have issues at the moment putting this up to the maximum (255)
   // Most likely due to the fact the LED strip is underpowered
@@ -176,15 +176,13 @@ char *url_tail, bool tail_complete) {
     return;
   }
   else if (type == WebServer::GET) {
-    if (strlen(url_tail)) {
-      while (strlen(url_tail)) {
-        rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
-        if (rc != URLPARAM_EOS) {
-          if (String(name).equals("seq")) {
-            lightOption = atoi(value);
-            server.print(lightOption);
-            position = 0;
-          }
+    while (strlen(url_tail)) {
+      rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
+      if (rc != URLPARAM_EOS) {
+        if (String(name).equals("seq")) {
+          lightOption = atoi(value);
+          server.print(lightOption);
+          position = 0;
         }
       }
     }
@@ -218,25 +216,23 @@ char *url_tail, bool tail_complete) {
     return;
   }
   else if (type == WebServer::GET) {
-    if (strlen(url_tail)) {
-      while (strlen(url_tail)) {
-        rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
-        if (rc != URLPARAM_EOS) {
-          if (String(name).equals("x")) {
-            xPos = atoi(value);
-          }
-          else if (String(name).equals("y")) {
-            yPos = atoi(value);
-          }
-          else if (String(name).equals("r")) {
-            r = atoi(value);
-          }
-          else if (String(name).equals("g")) {
-            g = atoi(value);
-          }
-          else if (String(name).equals("b")) {
-            b = atoi(value);
-          }
+    while (strlen(url_tail)) {
+      rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
+      if (rc != URLPARAM_EOS) {
+        if (String(name).equals("x")) {
+          xPos = atoi(value);
+        }
+        else if (String(name).equals("y")) {
+          yPos = atoi(value);
+        }
+        else if (String(name).equals("r")) {
+          r = atoi(value);
+        }
+        else if (String(name).equals("g")) {
+          g = atoi(value);
+        }
+        else if (String(name).equals("b")) {
+          b = atoi(value);
         }
       }
     }
@@ -268,15 +264,13 @@ char *url_tail, bool tail_complete) {
     return;
   }
   else if (type == WebServer::GET) { //WebServer::POST
-    if (strlen(url_tail)) {
-      while (strlen(url_tail)) {
-        rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
-        if (rc != URLPARAM_EOS) {
-          if (String(name).equals("bright")) {
-            strip.setBrightness(atoi(value));
-            server.print(atoi(value));
-            strip.show();
-          }
+    while (strlen(url_tail)) {
+      rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
+      if (rc != URLPARAM_EOS) {
+        if (String(name).equals("bright")) {
+          strip.setBrightness(atoi(value));
+          server.print(atoi(value));
+          strip.show();
         }
       }
     }
@@ -452,30 +446,31 @@ void loop()
   ///TODO: Make these switches nicer
   switch (lightOption) {
     case 0: // Don't change the lights at all
-      lightOption = 2;
       break;
-    case 1: // Wipe the LED's to Red
+    case 1: // RainbowCycle
+      rainbowCycle(20);
+      break;
+    // Cycling through LED Sequences
+    case 11:
       colourWipe(strip.Color(red, green, blue), 50);
       Serial.println("ColourWipe");
       break;
-    case 2:
+    case 12:
       rainbow(20);
-      Serial.println("Rainbow");
       break;
-    case 3:
+    case 13:
       rainbowCycle(20);
-      Serial.println("RainbowCycle");
       break;
-    case 4:
+    case 14:
       theaterChaseRainbow(20);
-      Serial.println("TheaterChaseRainbow");
       break;
-    default:
-      lightOption = 1;
+    default: // Go back to cycling
+      lightOption = 11;
       break;
   }
+  
   // Show our lights
-  if (position == 0) { // if we have completed a sequence, move to the next one
+  if (position == 0 && lightOption > 10) { // if we have completed a sequence, move to the next one
     lightOption++;
   }
 }
