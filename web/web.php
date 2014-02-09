@@ -31,32 +31,66 @@
 		}
 		body {
 			width: 480px;
+			min-width: 480px;
 			margin-left: auto;
 			margin-right: auto;
-			background: #AAAAAA;
+			background: #FFFFFF;
+		}
+		.lights {
+			width: 210px;
+			height: 60px;
+			padding: 0;
+			margin: 0;
+			font-size: 0%;
+			float: left;
 		}
 		.led {
-			width: 60px;
-			height: 20px;
+			width: 28px;
+			height: 8px;
 			margin: 0px;
-			padding: 0;
+			padding: 1px;
 			background: #000000;
 			display: inline-block;
 		}
-		[class^=slider] { display: inline-block; margin-bottom: 30px; }
+		.led:hover {
+			padding: 0px;
+			background: #0000FF;
+			border: solid 1px #FF0000;
+		}
+		.lightcontrol {
+			float: right;
+			width: 250px;
+			padding: 0;
+			margin: 0;
+			background: #0000FF;
+		}
+		.brightness{
+			clear: both;
+		}
+		[class^=slider] {
+			display: inline-block;
+		}
 	</style>
 </head>
 <body>
-	<div name="lights">
+	<div class="lights">
 		<?php
 		
-		for ($i = 0; $i < 7; $i++) {
-			for ($j = 0; $j < 6; $j++) {
+		for ($i = 0; $i < 6; $i++) {
+			for ($j = 0; $j < 7; $j++) {
 				echo "<div class='led' id='led".$j."x".$i."'>&nbsp;</div>";
 			}
-			echo "<br />";
+			echo "<br />\r\n";
 		}
+		
 		?>
+	</div>
+	<div class="lightcontrol">
+		x: <input type="text" disabled value="" id="x"><br />
+		y: <input type="text" disabled value="" id="y"><br />
+		Red: <input type="text" value="" id="red"><br />
+		Green: <input type="text" value="" id="green"><br />
+		Blue: <input type="text" value="" id="blue"><br />
 	</div>
 	<div class="brightness">
 		Brightness:<br />
@@ -78,14 +112,9 @@
 	
 	$(".brightness").change(function() {
 		console.log('<?=$cokeaddress?>/brightness?bright='+document.getElementById('bright').value);
-		$.ajax({
-			url: '<?=$cokeaddress?>brightness?bright='+document.getElementById('bright').value,
-			dataType: "jsonp",
-			crossDomain: true
-		});
+		
 		return false;
 	});
-		
 	</script>
 </body>
 </html>
