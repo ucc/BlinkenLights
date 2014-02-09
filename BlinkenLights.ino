@@ -258,7 +258,8 @@ char *url_tail, bool tail_complete) {
   char name[NAMELEN];
   char value[VALUELEN];
   
-  server.httpSuccess();
+  //server.print("Access-Control-Allow-Origin: *");
+  server.httpSuccess("application/json", "Access-Control-Allow-Origin: *");
   // Kill the connection before doing anything if all they want is head
   if (type == WebServer::HEAD) {
     return;
