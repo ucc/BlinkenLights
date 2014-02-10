@@ -1,13 +1,13 @@
 /**
- BlinkenLights
- 
- Code by Mitchell Pomery [BG3] with help from Andrew Adamson [BOB]
- Hardware by Andrew Adamson [BOB] with help from Mitchell Pomery [BG3]
- 
- Get the dates from the git commits.
- 
- The LED strip should be wired from the top left corner and zig zag down
- 
+ * BlinkenLights
+ * 
+ * Code by Mitchell Pomery [BG3] with help from Andrew Adamson [BOB]
+ * Hardware by Andrew Adamson [BOB] with help from Mitchell Pomery [BG3]
+ * 
+ * Get the dates from the git commits.
+ * 
+ * The LED strip should be wired from the top left corner and zig zag down
+ * 
  */
 
 ///TODO: Vary light pattern randomly
@@ -49,19 +49,61 @@ int position = 0; // How far through the cycle we are
 struct led ledArray[STRIPLENGTH]; // led array
 int lightOption = 1; // Which predefined light sequence we are running
 char brightness = (char) 128; //Brightness of the LEDs
-  // We seem to have issues at the moment putting this up to the maximum (255)
-  // Most likely due to the fact the LED strip is underpowered
+// We seem to have issues at the moment putting this up to the maximum (255)
+// Most likely due to the fact the LED strip is underpowered
 
 // Network Settings
-static uint8_t mac[] = { 0xC0, 0xCA, 0xC0, 0x1A, 0x19, 0x82 }; // C0CA C01A 1982
+static uint8_t mac[] = { 
+  0xC0, 0xCA, 0xC0, 0x1A, 0x19, 0x82 }; // C0CA C01A 1982
 IPAddress ip(130,95,13,96); // 130.95.13.96 (Can we forcefully take .82?
 // If we remove the ip address, we will automatically use DHCP
 
 // Set up our light strip
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(STRIPLENGTH, PIN,
-  NEO_GRB + NEO_KHZ800);
+NEO_GRB + NEO_KHZ800);
 // Set up our webserver
 WebServer webserver(PREFIX, 80);
+
+
+
+// =========================== char-hex conversions ===========================
+
+char* charToHex(char c) {
+  char base_digits[16] =
+  {
+    '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'  };
+
+  int converted_number[64];
+  int base = 16;
+  int next_digit, index=0;
+  int number_to_convert = (int) c + 128;
+
+  /* convert to the indicated base */
+  while (number_to_convert != 0)
+  {
+    converted_number[index] = number_to_convert % base;
+    number_to_convert = number_to_convert / base;
+    index++;
+  }
+  Serial.println(index);
+  /* now print the result in reverse order */
+  index--;  /* back up to last entry in the array */
+  
+  if (index < 0) {
+    Serial.print(base_digits[0]);
+  }
+  if (index < 1) {
+    Serial.print(base_digits[0]);
+  }
+  
+  for(; index>=0; index--) /* go backward through array */
+  {
+    Serial.print(base_digits[converted_number[index]]);
+  }
+  return (char) 0;
+}
+
 
 // ============================ LIGHT MANIPULATION ============================
 
@@ -169,7 +211,7 @@ char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
   char value[VALUELEN];
-  
+
   server.httpSuccess();
   // Kill the connection before doing anything if all they want is head
   if (type == WebServer::HEAD) {
@@ -181,11 +223,11 @@ char *url_tail, bool tail_complete) {
       if (rc != URLPARAM_EOS) {
         if (String(name).equals("seq")) {
           lightOption = atoi(value);
-          server.print(lightOption);
           position = 0;
         }
       }
     }
+    server.print(lightOption);
   }
   else {
     server.print("Unknown Request");
@@ -199,51 +241,51 @@ char *url_tail, bool tail_complete) {
  * @param url_tail      
  * @param tail_complete 
  */
-void webSetLED(WebServer &server, WebServer::ConnectionType type,
-char *url_tail, bool tail_complete) {
-  URLPARAM_RESULT rc;
-  char name[NAMELEN];
-  char value[VALUELEN];
-  int xPos = -1;
-  int yPos = -1;
-  int r = -1;
-  int g = -1;
-  int b = -1;
-  
-  server.httpSuccess();
-  // Kill the connection before doing anything if all they want is head
-  if (type == WebServer::HEAD) {
-    return;
-  }
-  else if (type == WebServer::GET) {
-    while (strlen(url_tail)) {
-      rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
-      if (rc != URLPARAM_EOS) {
-        if (String(name).equals("x")) {
-          xPos = atoi(value);
-        }
-        else if (String(name).equals("y")) {
-          yPos = atoi(value);
-        }
-        else if (String(name).equals("r")) {
-          r = atoi(value);
-        }
-        else if (String(name).equals("g")) {
-          g = atoi(value);
-        }
-        else if (String(name).equals("b")) {
-          b = atoi(value);
-        }
-      }
-    }
-  }
-  else {
-    server.print("Unknown");
-  }
-  if (xPos != -1 && yPos != -1 && r != -1 && g != -1 && b != -1) {
-    setLED(xPos, r, g, b);
-  }
-}
+/*void webSetLED(WebServer &server, WebServer::ConnectionType type,
+ char *url_tail, bool tail_complete) {
+ URLPARAM_RESULT rc;
+ char name[NAMELEN];
+ char value[VALUELEN];
+ int xPos = -1;
+ int yPos = -1;
+ int r = -1;
+ int g = -1;
+ int b = -1;
+ 
+ server.httpSuccess();
+ // Kill the connection before doing anything if all they want is head
+ if (type == WebServer::HEAD) {
+ return;
+ }
+ else if (type == WebServer::GET) {
+ while (strlen(url_tail)) {
+ rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
+ if (rc != URLPARAM_EOS) {
+ if (String(name).equals("x")) {
+ xPos = atoi(value);
+ }
+ else if (String(name).equals("y")) {
+ yPos = atoi(value);
+ }
+ else if (String(name).equals("r")) {
+ r = atoi(value);
+ }
+ else if (String(name).equals("g")) {
+ g = atoi(value);
+ }
+ else if (String(name).equals("b")) {
+ b = atoi(value);
+ }
+ }
+ }
+ }
+ else {
+ server.print("Unknown");
+ }
+ if (xPos != -1 && yPos != -1 && r != -1 && g != -1 && b != -1) {
+ setLED(xPos, r, g, b);
+ }
+ }*/
 
 /**
  * Set the brightness to a specific magnitude
@@ -257,7 +299,7 @@ char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
   char value[VALUELEN];
-  
+
   //server.print("Access-Control-Allow-Origin: *");
   server.httpSuccess("application/json", "Access-Control-Allow-Origin: *");
   // Kill the connection before doing anything if all they want is head
@@ -270,11 +312,12 @@ char *url_tail, bool tail_complete) {
       if (rc != URLPARAM_EOS) {
         if (String(name).equals("bright")) {
           strip.setBrightness(atoi(value));
-          server.print(atoi(value));
           strip.show();
         }
       }
     }
+    server.print((int) brightness);
+    Serial.println((int) brightness);
   }
   else {
     server.print("Unknown");
@@ -365,19 +408,19 @@ void theaterChaseRainbow(uint8_t wait) {
   ///TODO: stop this blocking. Somehow
   int outOf = 256;
   for (int q=0; q < 3; q++) {
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        // turn every third pixel on
-        strip.setPixelColor(i+q, Wheel( (i+position) % 255));
-      }
-      strip.show();
-     
-      delay(wait);
-     
-      for (int i=0; i < strip.numPixels(); i=i+3) {
-        strip.setPixelColor(i+q, 0); // turn every third pixel off
-      }
+    for (int i=0; i < strip.numPixels(); i=i+3) {
+      // turn every third pixel on
+      strip.setPixelColor(i+q, Wheel( (i+position) % 255));
+    }
+    strip.show();
+
+    delay(wait);
+
+    for (int i=0; i < strip.numPixels(); i=i+3) {
+      strip.setPixelColor(i+q, 0); // turn every third pixel off
+    }
   }
-  
+
   position++;
   if (position >= outOf) {
     position = 0;
@@ -392,13 +435,15 @@ void theaterChaseRainbow(uint8_t wait) {
  */
 uint32_t Wheel(byte WheelPos) {
   if(WheelPos < 85) {
-   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-  } else if(WheelPos < 170) {
-   WheelPos -= 85;
-   return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-  } else {
-   WheelPos -= 170;
-   return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+    return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+  } 
+  else if(WheelPos < 170) {
+    WheelPos -= 85;
+    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  } 
+  else {
+    WheelPos -= 170;
+    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
   }
 }
 
@@ -416,7 +461,7 @@ void setup() {
   // Set up webpages
   webserver.setDefaultCommand(&webSetSequence);
   webserver.addCommand("custom", &webSetSequence);
-  webserver.addCommand("individual", &webSetLED);
+  //webserver.addCommand("individual", &webSetLED);
   webserver.addCommand("brightness", &webSetBrightness);
   // Start Webserver
   webserver.begin();
@@ -426,7 +471,16 @@ void setup() {
     ledArray[i].green = (char) 128;
     ledArray[i].blue = (char) 128;
   }
-  
+
+  for (int i = -128; i < 128; i++) {
+    Serial.print(i);
+    Serial.print(" ");
+    //Serial.print((char) i);
+    Serial.print(" ");
+    charToHex((char) i);
+    Serial.println("");
+  }
+
   // Start Lights
   strip.begin();
   strip.setBrightness(128);
@@ -442,36 +496,37 @@ void loop()
   if (lightOption > NUMSEQUENCES) {
     //lightOption = 1;
   }
-  
+
   // Run our light sequence after checking for we requests
   ///TODO: Make these switches nicer
   switch (lightOption) {
-    case 0: // Don't change the lights at all
-      break;
-    case 1: // RainbowCycle
-      rainbowCycle(20);
-      break;
+  case 0: // Don't change the lights at all
+    break;
+  case 1: // RainbowCycle
+    rainbowCycle(20);
+    break;
     // Cycling through LED Sequences
-    case 11:
-      colourWipe(strip.Color(red, green, blue), 50);
-      Serial.println("ColourWipe");
-      break;
-    case 12:
-      rainbow(20);
-      break;
-    case 13:
-      rainbowCycle(20);
-      break;
-    case 14:
-      theaterChaseRainbow(20);
-      break;
-    default: // Go back to cycling
-      lightOption = 11;
-      break;
+  case 11:
+    colourWipe(strip.Color(red, green, blue), 50);
+    Serial.println("ColourWipe");
+    break;
+  case 12:
+    rainbow(20);
+    break;
+  case 13:
+    rainbowCycle(20);
+    break;
+  case 14:
+    theaterChaseRainbow(20);
+    break;
+  default: // Go back to cycling
+    lightOption = 11;
+    break;
   }
-  
+
   // Show our lights
   if (position == 0 && lightOption > 10) { // if we have completed a sequence, move to the next one
     lightOption++;
   }
 }
+
