@@ -4,6 +4,7 @@
   *  using PHP because screw typing
   */
   $cokeaddress = "http://130.95.13.96/";
+  $cokeurl = $cokeaddress;
 ?>
 <!DOCTYPE html>
 <html>
@@ -111,7 +112,12 @@
 	});
 	
 	$(".brightness").change(function() {
-		console.log('<?=$cokeaddress?>/brightness?bright='+document.getElementById('bright').value);
+		console.log('<?=$cokeurl?>brightness?bright='+document.getElementById('bright').value);
+		$.ajax({
+			url: '<?=$cokeaddress?>brightness?bright='+document.getElementById('bright').value,
+			dataType: "jsonp",
+			crossDomain: true
+		});
 		
 		return false;
 	});
