@@ -64,15 +64,13 @@ NEO_GRB + NEO_KHZ800);
 // Set up our webserver
 WebServer webserver(PREFIX, 80);
 
-
-
 // =========================== char-hex conversions ===========================
 
 char* charToHex(char c) {
   char base_digits[16] =
-  {
+  { 
     '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'  };
+    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'    };
 
   int converted_number[64];
   int base = 16;
@@ -86,24 +84,38 @@ char* charToHex(char c) {
     number_to_convert = number_to_convert / base;
     index++;
   }
-  Serial.println(index);
+  //Serial.println(index);
   /* now print the result in reverse order */
-  index--;  /* back up to last entry in the array */
-  
+  index--; /* back up to last entry in the array */
+
+  char ret[3];
+
+  //ret[0] = '';
+  //ret[1] = '';
+
+  int i = 0;
+
   if (index < 0) {
-    Serial.print(base_digits[0]);
+    ret[i] = base_digits[0];
+    i++;
   }
   if (index < 1) {
-    Serial.print(base_digits[0]);
+    ret[i] = base_digits[0];
+    i++;
   }
   
-  for(; index>=0; index--) /* go backward through array */
+  for(; index >= 0 && i < 2; index--) // go backward through array 
   {
-    Serial.print(base_digits[converted_number[index]]);
+    ret[i] = base_digits[converted_number[index]];
+    i++;
   }
-  return (char) 0;
+  
+  ret[2] = '\0';
+  Serial.print(ret); // NEVER REMOVE THIS LINE. OR DIE
+  // WITHOUT IT WE GET GARBLED OUTPUT HERE
+  // YOU HAVE BEEN WARNED
+  return ret;
 }
-
 
 // ============================ LIGHT MANIPULATION ============================
 
@@ -178,7 +190,13 @@ void setLED(int xpos, int ypos, int red, int green, int blue) {
  * @return      colour of LED at pos
  */
 struct led getLED(int pos) {
-  return ledArray[pos];
+  uint32_t light = strip.getPixelColor(pos);
+  //Serial.print(light);
+  led ret;
+  ret.red = light >> 16;
+  ret.green = light >> 8;
+  ret.blue = light;
+  return ret;
 }
 
 /**
@@ -189,7 +207,7 @@ struct led getLED(int pos) {
  */
 struct led getLED(int xpos, int ypos) {
   int pos = coordToPos(xpos, ypos);
-  return ledArray[pos];
+  return getLED(pos);
 }
 
 // ================================ WEB PAGES ================================
@@ -228,6 +246,39 @@ char *url_tail, bool tail_complete) {
       }
     }
     server.print(lightOption);
+  }
+  else {
+    server.print("Unknown Request");
+  }
+}
+
+void webGetArray(WebServer &server, WebServer::ConnectionType type,
+char *url_tail, bool tail_complete) {
+  URLPARAM_RESULT rc;
+  char name[NAMELEN];
+  char value[VALUELEN];
+
+  server.httpSuccess();
+  // Kill the connection before doing anything if all they want is head
+  if (type == WebServer::HEAD) {
+    return;
+  }
+  else if (type == WebServer::GET) {
+    for (int i = 0; i < WIDTH; i++) {
+      for (int j = 0; j < HEIGHT; j++) {
+        led light = getLED(i, j);
+        //Serial.print(i);
+        //Serial.print(", ");
+        //Serial.println(j);
+        server.print(charToHex(light.red));
+        //Serial.print(light.red);
+        server.print(charToHex(light.green));
+        //Serial.print(light.green);
+        server.print(charToHex(light.blue));
+        //Serial.println(light.blue);
+      }
+    }
+    //server.print(array);
   }
   else {
     server.print("Unknown Request");
@@ -463,6 +514,7 @@ void setup() {
   webserver.addCommand("custom", &webSetSequence);
   //webserver.addCommand("individual", &webSetLED);
   webserver.addCommand("brightness", &webSetBrightness);
+  webserver.addCommand("get", &webGetArray);
   // Start Webserver
   webserver.begin();
   // Turn our lights on
@@ -472,14 +524,14 @@ void setup() {
     ledArray[i].blue = (char) 128;
   }
 
-  for (int i = -128; i < 128; i++) {
-    Serial.print(i);
-    Serial.print(" ");
-    //Serial.print((char) i);
-    Serial.print(" ");
-    charToHex((char) i);
-    Serial.println("");
-  }
+  /*for (int i = -128; i < 128; i++) {
+   Serial.print(i);
+   Serial.print(" ");
+   //Serial.print((char) i);
+   Serial.print(" ");
+   charToHex((char) i);
+   Serial.println("");
+   }*/
 
   // Start Lights
   strip.begin();
@@ -529,4 +581,5 @@ void loop()
     lightOption++;
   }
 }
+
 
