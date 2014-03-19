@@ -46,7 +46,6 @@ char blue = (int) 255;
 
 // For controlling the lights - Should only be changed by the functions
 int position = 0; // How far through the cycle we are
-struct led ledArray[STRIPLENGTH]; // led array
 int lightOption = 1; // Which predefined light sequence we are running
 char brightness = (char) 128; //Brightness of the LEDs
 // We seem to have issues at the moment putting this up to the maximum (255)
@@ -66,35 +65,28 @@ WebServer webserver(PREFIX, 80);
 
 // =========================== char-hex conversions ===========================
 
+char hexToChar(char* c) {
+  return (char) strtol(c, NULL, 16);
+}
+
 char* charToHex(char c) {
   char base_digits[16] =
-  { 
+  {
     '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'    };
-
+    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
   int converted_number[64];
   int base = 16;
   int next_digit, index=0;
   int number_to_convert = (int) c + 128;
-
-  /* convert to the indicated base */
   while (number_to_convert != 0)
   {
     converted_number[index] = number_to_convert % base;
     number_to_convert = number_to_convert / base;
     index++;
   }
-  //Serial.println(index);
-  /* now print the result in reverse order */
-  index--; /* back up to last entry in the array */
-
+  index--; // back up to last entry in the array
   char ret[3];
-
-  //ret[0] = '';
-  //ret[1] = '';
-
   int i = 0;
-
   if (index < 0) {
     ret[i] = base_digits[0];
     i++;
@@ -124,9 +116,6 @@ char* charToHex(char c) {
  * We should probably get rid of this soonish
  */
 void updateLights() {
-  for (int i = 0; i < STRIPLENGTH; i ++) {
-    strip.setPixelColor(i, (int) ledArray[i].red, (int) ledArray[i].green, (int) ledArray[i].blue);
-  }
   strip.show();
 }
 
@@ -138,6 +127,8 @@ void updateLights() {
  */
 int coordToPos(int xpos, int ypos) {
   ///TODO: Test this function
+  ///TODO: Make this smaller
+  ///TODO: Turn this into a define
   int pos = 0;
   if ((xpos < 0 || xpos >= WIDTH) || (ypos < 0 || ypos >= HEIGHT)) {
     return -1;
@@ -165,9 +156,7 @@ int coordToPos(int xpos, int ypos) {
  */
 void setLED(int pos, int red, int green, int blue) {
   if (pos > 0 && pos < STRIPLENGTH) {
-    ledArray[pos].red = red;
-    ledArray[pos].green = green;
-    ledArray[pos].blue = blue;
+    strip.setPixelColor(i, (int) red, (int) green, (int) blue);
   }
 }
 
@@ -284,59 +273,6 @@ char *url_tail, bool tail_complete) {
     server.print("Unknown Request");
   }
 }
-
-/**
- * Set a specific LED to a specific colour
- * @param server        
- * @param type          
- * @param url_tail      
- * @param tail_complete 
- */
-/*void webSetLED(WebServer &server, WebServer::ConnectionType type,
- char *url_tail, bool tail_complete) {
- URLPARAM_RESULT rc;
- char name[NAMELEN];
- char value[VALUELEN];
- int xPos = -1;
- int yPos = -1;
- int r = -1;
- int g = -1;
- int b = -1;
- 
- server.httpSuccess();
- // Kill the connection before doing anything if all they want is head
- if (type == WebServer::HEAD) {
- return;
- }
- else if (type == WebServer::GET) {
- while (strlen(url_tail)) {
- rc = server.nextURLparam(&url_tail, name, NAMELEN, value, VALUELEN);
- if (rc != URLPARAM_EOS) {
- if (String(name).equals("x")) {
- xPos = atoi(value);
- }
- else if (String(name).equals("y")) {
- yPos = atoi(value);
- }
- else if (String(name).equals("r")) {
- r = atoi(value);
- }
- else if (String(name).equals("g")) {
- g = atoi(value);
- }
- else if (String(name).equals("b")) {
- b = atoi(value);
- }
- }
- }
- }
- else {
- server.print("Unknown");
- }
- if (xPos != -1 && yPos != -1 && r != -1 && g != -1 && b != -1) {
- setLED(xPos, r, g, b);
- }
- }*/
 
 /**
  * Set the brightness to a specific magnitude
@@ -517,21 +453,19 @@ void setup() {
   webserver.addCommand("get", &webGetArray);
   // Start Webserver
   webserver.begin();
-  // Turn our lights on
-  for (int i = 0; i < STRIPLENGTH; i ++) {
-    ledArray[i].red = (char) 128;
-    ledArray[i].green = (char) 128;
-    ledArray[i].blue = (char) 128;
-  }
-
-  /*for (int i = -128; i < 128; i++) {
+  
+  for (int i = -128; i < 128; i++) {
    Serial.print(i);
    Serial.print(" ");
-   //Serial.print((char) i);
+   Serial.print((char) i);
    Serial.print(" ");
-   charToHex((char) i);
+   char *c = charToHex((char) i);
+   char d = hexToChar((char*) (int) c - 128);
+   Serial.print(c);
+   Serial.print(" ");
+   Serial.print(d);
    Serial.println("");
-   }*/
+  }
 
   // Start Lights
   strip.begin();
