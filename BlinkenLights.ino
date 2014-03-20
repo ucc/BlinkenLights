@@ -26,7 +26,7 @@
 #define PREFIX "" // Document root for our pages
 #define PORT 80 // Web Server Port
 #define NAMELEN 8 // Max variable length in request
-#define VALUELEN 256 // Max value from request
+#define VALUELEN 255 // Max value from request
 #define WIDTH 7 // How many LEDs wide our array is
 #define HEIGHT 6 // How many LEDs high our array is
 #define STRIPLENGTH 42 // Number of LED's in light strip
@@ -156,7 +156,7 @@ int coordToPos(int xpos, int ypos) {
  */
 void setLED(int pos, int red, int green, int blue) {
   if (pos > 0 && pos < STRIPLENGTH) {
-    strip.setPixelColor(i, (int) red, (int) green, (int) blue);
+    strip.setPixelColor(pos, (int) red, (int) green, (int) blue);
   }
 }
 
@@ -268,6 +268,51 @@ char *url_tail, bool tail_complete) {
       }
     }
     //server.print(array);
+  }
+  else {
+    server.print("Unknown Request");
+  }
+}
+
+void webSetArray(WebServer &server, WebServer::ConnectionType type,
+char *url_tail, bool tail_complete) {
+  URLPARAM_RESULT rc;
+  char name[NAMELEN];
+  char value[VALUELEN];
+
+  server.httpSuccess();
+  // Kill the connection before doing anything if all they want is head
+  if (type == WebServer::HEAD) {
+    return;
+  }
+  else if (type == WebServer::GET) {
+    ///TODO: Get rid of these magic numbers
+    //if (strlen(url_tail) >= 252) {
+      for (int i = 0; i < WIDTH; i++) {
+        for (int j = 0; j < HEIGHT; j++) {
+          char red[3];
+          char green[3];
+          char blue[3];
+          red[2] = '\0';
+          green[2] = '\0';
+          blue[2] = '\0';
+          int start = HEIGHT * i + j;
+          Serial.print(start);
+          Serial.print(" ");
+          red[0] = url_tail[6 * start];
+          red[1] = url_tail[(6 * start) + 1];
+          green[0] = url_tail[(6 * start) + 2];
+          green[1] = url_tail[(6 * start) + 3];
+          blue[0] = url_tail[(6 * start) + 4];
+          blue[1] = url_tail[(6 * start) + 5];
+          Serial.print(red);
+          Serial.print(green);
+          Serial.print(blue);
+          Serial.println("");
+          setLED(i, j, hexToChar(red), hexToChar(green), hexToChar(blue));
+        }
+      }
+    //}
   }
   else {
     server.print("Unknown Request");
@@ -451,10 +496,11 @@ void setup() {
   //webserver.addCommand("individual", &webSetLED);
   webserver.addCommand("brightness", &webSetBrightness);
   webserver.addCommand("get", &webGetArray);
+  webserver.addCommand("set", &webSetArray);
   // Start Webserver
   webserver.begin();
   
-  for (int i = -128; i < 128; i++) {
+  /*for (int i = -128; i < 128; i++) {
    Serial.print(i);
    Serial.print(" ");
    Serial.print((char) i);
@@ -465,7 +511,7 @@ void setup() {
    Serial.print(" ");
    Serial.print(d);
    Serial.println("");
-  }
+  }*/
 
   // Start Lights
   strip.begin();
@@ -476,8 +522,8 @@ void setup() {
 void loop()
 {
   // process incoming connections one at a time forever
-  char buff[64];
-  int len = 64;
+  char buff[256];
+  int len = 256;
   webserver.processConnection(buff, &len);
   if (lightOption > NUMSEQUENCES) {
     //lightOption = 1;
@@ -509,7 +555,9 @@ void loop()
     lightOption = 11;
     break;
   }
-
+  
+  updateLights();
+  
   // Show our lights
   if (position == 0 && lightOption > 10) { // if we have completed a sequence, move to the next one
     lightOption++;
