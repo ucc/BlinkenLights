@@ -246,13 +246,20 @@ char *url_tail, bool tail_complete) {
   URLPARAM_RESULT rc;
   char name[NAMELEN];
   char value[VALUELEN];
-
-  server.httpSuccess();
+  
+  server.httpSuccess("application/json");
   // Kill the connection before doing anything if all they want is head
   if (type == WebServer::HEAD) {
     return;
   }
   else if (type == WebServer::GET) {
+    //server.print("{"+'"'+"+lights"+'"'+":"+'"');
+    server.print("a({");
+    server.print('"');
+    server.print("lights");
+    server.print('"');
+    server.print(':');
+    server.print('"');
     for (int i = 0; i < WIDTH; i++) {
       for (int j = 0; j < HEIGHT; j++) {
         led light = getLED(i, j);
@@ -267,6 +274,8 @@ char *url_tail, bool tail_complete) {
         //Serial.println(light.blue);
       }
     }
+    server.print('"');
+    server.print("});");
     //server.print(array);
   }
   else {

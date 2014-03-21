@@ -27,27 +27,27 @@
 	<style type="text/css">
 		html {
 			width: 100%;
-			min-width: 480px;
+			min-width: 1024px;
 			background: #DDDDDD;
 		}
 		body {
-			width: 480px;
-			min-width: 480px;
+			width: 1024px;
+			min-width: 1024px;
 			margin-left: auto;
 			margin-right: auto;
 			background: #FFFFFF;
 		}
 		.lights {
-			width: 210px;
-			height: 60px;
+			width: 630px;
+			height: 180px;
 			padding: 0;
 			margin: 0;
 			font-size: 0%;
 			float: left;
 		}
 		.led {
-			width: 28px;
-			height: 8px;
+			width: 84px;
+			height: 24px;
 			margin: 0px;
 			padding: 1px;
 			background: #000000;
@@ -55,12 +55,11 @@
 		}
 		.led:hover {
 			padding: 0px;
-			background: #0000FF;
 			border: solid 1px #FF0000;
 		}
 		.lightcontrol {
 			float: right;
-			width: 250px;
+			width: 394px;
 			padding: 0;
 			margin: 0;
 			background: #0000FF;
@@ -86,14 +85,18 @@
 		
 		?>
 	</div>
-	<div class="lightcontrol">
+	<div class="lightcontrol" id="lightcontrol">
 		x: <input type="text" disabled value="" id="x"><br />
 		y: <input type="text" disabled value="" id="y"><br />
-		Red: <input type="text" value="" id="red"><br />
-		Green: <input type="text" value="" id="green"><br />
-		Blue: <input type="text" value="" id="blue"><br />
+		Red:<br />
+		<input type="text" id="red" class="colour" data-slider="true" data-slider-theme="volume" data-slider-range="0,255" data-slider-step="1" /><br />
+		Green:<br />
+		<input type="text" id="green" class="colour" data-slider="true" data-slider-theme="volume" data-slider-range="0,255" data-slider-step="1" /><br />
+		Blue:<br />
+		<input type="text" id="blue" class="colour" data-slider="true" data-slider-theme="volume" data-slider-range="0,255" data-slider-step="1" /><br />
+		<input type="button" id="setlights" value="Set Lights" />
 	</div>
-	<div class="brightness">
+	<div class="brightness" style="display:none;" >
 		Brightness:<br />
 		<input type="text" id="bright" data-slider="true" data-slider-theme="volume" data-slider-range="0,255" data-slider-step="1" />
 	</div>
@@ -111,7 +114,8 @@
 		.html(data.value.toFixed(0));
 	});
 	
-	$(".brightness").change(function() {
+	// Sets Brightness
+	/*$(".brightness").change(function() {
 		console.log('<?=$cokeurl?>brightness?bright='+document.getElementById('bright').value);
 		$.ajax({
 			url: '<?=$cokeaddress?>brightness?bright='+document.getElementById('bright').value,
@@ -120,7 +124,112 @@
 		});
 		
 		return false;
+	});*/
+	
+	$(".led").click(function() {
+		console.log("hihi");
+		// id contains info we need
+		var id = this.id;
+		console.log(id);
+		var x = id.substring(3,4);
+		console.log(x);
+		var y = id.substring(5,6);
+		console.log(y);
+		$('#x').val(x);
+		$('#y').val(y);
 	});
+	
+	$(".colour").change(function() {
+		setLED($('#x').val(), $('#y').val(), $('#red').val(), $('#green').val(),
+			$('#blue').val());
+		document.getElementById('lightcontrol').style.backgroundColor = "rgb(" + $('#red').val() +
+			", " + $('#green').val() + ", " + $('#blue').val() + ")";
+	});
+	
+	function getLights() {
+		console.log('<?=$cokeurl?>get');
+		$.ajax({
+			url: '<?=$cokeaddress?>get',
+			dataType: "jsonp",
+			crossDomain: true,
+			jsonp: false,
+			jsonpCallback: "a",
+			success: function(data) {
+				//console.log(data.lights);
+				lights = data.lights;
+				for (var i = 0; i < 7; i++) {
+					for (var j = 0; j < 6; j++) {
+						var l = "led" + i + "x" + j
+						var pos = i * 6 + j;
+						//console.log(l);
+						//console.log(pos);
+						var hex = lights.substring(pos * 6, pos * 6 + 6);
+						//console.log(hex);
+						document.getElementById(l).style.backgroundColor =
+							"#" + hex;
+					}
+				}
+			}
+		});
+		
+		return "true";
+	}
+	
+	var hexDigits = new Array
+		("0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"); 
+	function hex(x) {
+		return isNaN(x) ? "00" : hexDigits[(x - x % 16) / 16] + hexDigits[x % 16];
+	}
+	
+	$("#setlights").click(function() {
+		console.log("Set Lights");
+		var lights = "";
+		for (var i = 0; i < 7; i++) {
+			for (var j = 0; j < 6; j++) {
+				var l = "led" + i + "x" + j
+				var pos = i * 6 + j;
+				var colour = document.getElementById(l).style.backgroundColor;
+				colour = colour.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+				var h = hex(colour[1]) + hex(colour[2]) + hex(colour[3]);
+				//console.log(l);
+				//console.log(h);
+				lights = lights + h;
+			}
+		}
+		console.log(lights);
+		$.ajax({
+			url: '<?=$cokeaddress?>set?' + lights,
+			dataType: "jsonp",
+			crossDomain: true,
+			jsonp: false,
+			jsonpCallback: "a",
+			success: function(data) {
+				console.log("change!");
+			}
+		});
+	});
+	
+	// Gets brightness
+	/*function getBrightness() {
+		console.log('<?=$cokeurl?>brightness);
+		$.ajax({
+			url: '<?=$cokeaddress?>brightness,
+			dataType: "jsonp",
+			crossDomain: true,
+			success: function(response) {
+				$(".brightness").value(response);
+			}
+		});
+		
+		return false;
+	});*/
+	
+	function load() {
+		getLights();
+	}
+	
+	
+	$(document).ready(function(){load();});
 	</script>
 </body>
 </html>
