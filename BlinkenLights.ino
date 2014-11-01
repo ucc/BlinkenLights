@@ -69,6 +69,10 @@ char hexToChar(char* c) {
   return (char) strtol(c, NULL, 16);
 }
 
+char cthret[3]; // We return a pointer to a character below.
+// If we don't have this, then the returned value can be overwritten before we
+// read it.
+
 char* charToHex(char c) {
   char base_digits[16] =
   {
@@ -85,28 +89,30 @@ char* charToHex(char c) {
     index++;
   }
   index--; // back up to last entry in the array
-  char ret[3];
+
   int i = 0;
   if (index < 0) {
-    ret[i] = base_digits[0];
+    cthret[i] = base_digits[0];
     i++;
   }
   if (index < 1) {
-    ret[i] = base_digits[0];
+    cthret[i] = base_digits[0];
     i++;
   }
   
   for(; index >= 0 && i < 2; index--) // go backward through array 
   {
-    ret[i] = base_digits[converted_number[index]];
+    cthret[i] = base_digits[converted_number[index]];
     i++;
   }
   
-  ret[2] = '\0';
-  Serial.print(ret); // NEVER REMOVE THIS LINE. OR DIE
+  cthret[2] = '\0';
+  //Serial.print(cthret); // NEVER REMOVE THIS LINE. OR DIE
   // WITHOUT IT WE GET GARBLED OUTPUT HERE
   // YOU HAVE BEEN WARNED
-  return ret;
+  // Fixed by adding cthret
+  
+  return cthret;
 }
 
 // ============================ LIGHT MANIPULATION ============================
